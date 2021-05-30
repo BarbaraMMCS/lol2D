@@ -15,26 +15,25 @@ public class RandomAI extends AIBase {
   }
   public Turn championSelect() {
     Turn turn = new Turn();
-    String championName;
     switch(teamID) {
-      case Nexus.BLUE: championName = "Warrior"; break;
-      case Nexus.RED: championName = "Archer"; break;
+      case Nexus.BLUE: addChampions(4, "Warrior", turn);addChampions(4, "Archer", turn); break;
+      case Nexus.RED: addChampions(4, "Archer", turn);addChampions(4, "Warrior", turn); break;
       default: throw new RuntimeException("Unknown team color.");
     }
-    turn.registerAction(new ChampionSelect(teamID, championName));
-    turn.registerAction(new ChampionSelect(teamID, "Warrior"));
-    turn.registerAction(new ChampionSelect(teamID, "Archer"));
+
     return turn;
+  }
+
+  private void addChampions(int nChampion, String championName, Turn turn) {
+    for (int i = 0; i < nChampion; i++) {
+      turn.registerAction(new ChampionSelect(teamID, championName));
+    }
   }
 
   public Turn turn() {
     Turn turn = new Turn();
-    // Try to attack the Nexus first.
     tryAttackNexus(turn);
-    //
     tryAttackMonster(turn);
-    tryAttackTower(turn);
-    // Add a move action in case we could not attack the Nexus.
     tryMove(turn);
     return turn;
   }
@@ -51,15 +50,34 @@ public class RandomAI extends AIBase {
   }
 
   protected void tryMove(Turn turn) {
-    arena.teamOf(teamID).forEachChampion((champion, id) ->
+    Nexus ennemyNexus = battlefield.nexusOf((teamID + 1) % 2);
+    arena.teamOf(teamID).forEachChampion((champion, id) -> {
       traversal.visitAdjacent(champion.x(), champion.y(), champion.walkSpeed(), new TileVisitor(){
         public void visitGrass(int x, int y) {
-          if(random.nextInt() % 3 == 0) {
+          if(distance(x, y, ennemyNexus.x(), ennemyNexus.y())<distance(champion.x(), champion.y(), ennemyNexus.x(), ennemyNexus.y())) {
             turn.registerAction(new Move(teamID, id, x, y));
+            System.out.println("teamID " + teamID + " id " + id + " x " + x + " y " + y);
           }
         }
-      }));
+      });
+      traversal.visitAdjacent(champion.x(), champion.y(), champion.walkSpeed(), new TileVisitor(){
+        public void visitGrass(int x, int y) {
+          if(manhattanDistance(x, y, ennemyNexus.x(), ennemyNexus.y())<manhattanDistance(champion.x(), champion.y(), ennemyNexus.x(), ennemyNexus.y())) {
+            turn.registerAction(new Move(teamID, id, x, y));
+            System.out.println("teamID " + teamID + " id " + id + " x " + x + " y " + y);
+          }
+        }
+      });
+    });
   }
+
+  private int manhattanDistance(int x1, int y1, int x2, int y2){
+    return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+  }
+
+  protected int distance(int x1, int y1, int x2, int y2) {
+        return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2));
+    }
 
   protected void tryAttackMonster(Turn turn) {
     arena.teamOf(teamID).forEachChampion((champion, id) ->
